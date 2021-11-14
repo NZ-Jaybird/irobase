@@ -1,0 +1,14 @@
+{
+  "name": "irobase",
+  "version": "0.1",
+  "description": "Transparent ORM",
+  "main": "index.js",
+  "author": "Smith",
+  "license": "MIT",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "pg": "^8.7.1"
+  }
+}
