@@ -34,7 +34,7 @@ function defineSessionWrapper(session) {
     return class Session extends session {
         constructor() {
             super()
-            this.sessionId = ""
+            this.sessionid = ""
         }
     }
 }
@@ -42,6 +42,19 @@ function defineSessionWrapper(session) {
 module.exports = class Irobase {
 
     init(args) {
+        this.dataSource = getDataSource(args)
+        this.transactions = {}
+
+        console.log("Irobase ready")
+
+        return this
+    }
+
+    updateDomain(args) {
+        if (this.transactions.length > 0) {
+            throw "Cannot update domain while sessions are active"
+        }
+
         if (typeof(args.session) !== 'function') {
             throw "Invalid session entity"
         }
@@ -64,11 +77,7 @@ module.exports = class Irobase {
             this.schemas[entity.name] = new Schema(entity, entities, this.schemas)
         })
 
-        this.dataSource = getDataSource(args)
-        this.transactions = {}
         this.loader = new Loader(this.schemas, this.dataSource)
-
-        return this
     }
 
     async migrate() {
@@ -92,14 +101,14 @@ module.exports = class Irobase {
         let session;
         const sessionSchema = this.schemas[this.sessionEntity.name];
         try {
-            session = (await this.loader.load(sessionSchema, "sessionId", sessionId))[0]
+            session = (await this.loader.load(sessionSchema, "sessionid", sessionId))[0]
         } catch (e) {
             throw "Error loading session: " + e
         }
 
         if (!session) {
             session = createEntity(sessionSchema)
-            session.sessionId = sessionId
+            session.sessionid = sessionId
         }
 
         return this.transactions[sessionId] = session
@@ -120,19 +129,12 @@ module.exports = class Irobase {
         delete this.transactions[sessionId]
     }
 
-    async startTest() {
-        if (!this.transactions) {
-            throw "Irobase is not initialised"
-        }
-
-        await this.dataSource.query("BEGIN;")
-    }
-
     async endTest() {
-        if (!this.transactions) {
-            throw "Irobase is not initialised"
+        if (!this.schemas) {
+            return
         }
-
-        await this.dataSource.query("ROLLBACK;")
+        for (const schema of Object.values(this.schemas)) {
+            await this.dataSource.query(`drop table if exists ${schema.schemaName}`)
+        }
     }
 }

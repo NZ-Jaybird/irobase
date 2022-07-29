@@ -4,22 +4,26 @@ module.exports = async function persist(session, schemas, dataSource) {
     while (instanceStack.length > 0) {
         const instance = instanceStack.pop()
         const schema = schemas[(await instance.constructor).name]
-        const sql = schema.generateInsertScript(instance)
+        let sql;
+        if (instance.id) {
+            sql = schema.generateUpdateScript(instance)
+        } else {
+            sql = schema.generateInsertScript(instance)
+        }
+        console.log("persist sql: ", sql)
         const results = await dataSource.query(sql)
-        instance.id = results.rows[0].id
+        if (!instance.id) {
+            instance.id = results.rows[0].id
+        }
         Object.values(instance).forEach(field => {
-            if (typeof(field) === 'object') {
+            if (typeof(field) === 'object') { // TODO: Improve model to avoid using typeof here
                 if (Array.isArray(field)) {
                     field.forEach(element => {
-                        element[schema.schemaName + "Id"] = instance.id
-                        if (!element.id) {
-                            instanceStack.push(element)
-                        }
+                        element[schema.schemaName + "id"] = instance.id // TODO: is this necessary for an update?
+                        instanceStack.push(element)
                     })
                 } else {
-                    if (!field.id) {
-                        instanceStack.push(field)
-                    }
+                    instanceStack.push(field)
                 }
             }
         })

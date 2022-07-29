@@ -11,16 +11,20 @@ module.exports = class Schema {
                 this.addForeignKey(schemaName)
             }
         })
-        this.schemaName = entity.name
+        this.schemaName = entity.name.toLowerCase()
         this.entity = entity
     }
 
     addForeignKey(entityName) {
-        this.columns[entityName + "Id"] = new Column().buildForeignKeyColumn(entityName)
+        this.columns[entityName.toLowerCase() + "id"] = new Column().buildForeignKeyColumn(entityName)
     }
 
     hasReverseForeignKeyFor(entityName) {
         return Object.values(this.columns).some(column => column.isReverseForeignKeyFor(entityName))
+    }
+
+    getForeignKeyColumnName(entityName) {
+        return Object.values(this.columns).filter(column => column.isForeignKeyFor(entityName))[0].columnName
     }
 
     getReverseForeignKeys() {
@@ -43,7 +47,7 @@ module.exports = class Schema {
     generateSelectScript(columnName, value) {
         const column = this.columns[columnName]
         if (!column) {
-            throw "Unknown column"
+            throw "Unknown column: " + columnName
         }
         
         return `SELECT * FROM ${this.schemaName} WHERE ${columnName} = ${column.generateScriptForValue(value)}`
@@ -60,6 +64,21 @@ module.exports = class Schema {
             }
         })
         return `INSERT INTO ${this.schemaName}(${fields}) VALUES (${values}) RETURNING *`
+    }
+
+    generateUpdateScript(instance) {
+        const fieldUpdates = []
+        Object.entries(this.columns).forEach(([columnName, column]) => {
+            if (column.isReal()) {
+                const value = instance[columnName]
+                fieldUpdates.push(`${columnName} = ${column.generateScriptForValue(value)}`)
+            }
+        })
+        return `UPDATE ${this.schemaName} SET ${fieldUpdates.join(",")} WHERE id = ${instance.id}`
+    }
+
+    generateAddColumnScript(column) {
+        return `ALTER TABLE ${this.schemaName} ADD COLUMN ${column.generateCreateTableScript()}`
     }
 
     getForeignEntityForColumn(columnName) {

@@ -1,21 +1,15 @@
-const Irobase = require("../irobase")
-const exampleObject = require("./exampleObject")
-const exampleSession = require("./exampleSession")
-const assertThat = require("../test-support/assert")
+const exampleObject = require("../../test-support/exampleObject")
+const exampleSession = require("../../test-support/exampleSession")
+const assertThat = require("../../test-support/assert")
 
 module.exports = class createTableTest {
-    async run() {
-        const irobase = new Irobase().init({
-            database: "test",
-            password: "test",
-            user: "test",
+    async run(irobase) {
+        irobase.updateDomain({
             domain: [
                 exampleObject
             ],
             session: exampleSession
         })
-
-        await irobase.startTest()
         await irobase.migrate()
 
         const sessionId = 100001
@@ -28,7 +22,5 @@ module.exports = class createTableTest {
         assertThat(session.exampleObjects[0].name).isEqualTo("user")
         assertThat(session.exampleObjects[0].birthday).isEqualTo("March 12")
         await irobase.endTransaction(sessionId)
-
-        await irobase.endTest()
     }
 }

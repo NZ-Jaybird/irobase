@@ -14,7 +14,7 @@ module.exports = class loader {
             const blankEntity = createEntity(schema)
             const instance = Object.assign(blankEntity, row)
             for (const {columnName, foreignEntity} of schema.getReverseForeignKeys()) {
-                instance[columnName] = await this.load(this.schemas[foreignEntity], schema.schemaName + "Id", instance.id)
+                instance[columnName] = await this.load(this.schemas[foreignEntity], column, instance.id)
             }
             instances.push(instance)
         }

@@ -6,6 +6,7 @@
   "author": "Smith",
   "license": "MIT",
   "scripts": {
+    "startup": "systemctl start postgresql.service",
     "test": "node test.js"
   },
   "dependencies": {

@@ -3,8 +3,11 @@ module.exports = class Column {
         const fieldType = typeof(field);
         switch (fieldType) {
             case 'number':
-                // TODO: Use field value to distinguish between integers and floating point values
-                this.dataType = "integer"
+                if (Math.floor(field) === field) {
+                    this.dataType = "integer"
+                } else {
+                    this.dataType = "real"
+                }
                 break;
             case 'string':
                 this.dataType = "text"
@@ -42,6 +45,10 @@ module.exports = class Column {
         this.columnName = foreignEntityName + "Id"
 
         return this
+    }
+
+    isForeignKeyFor(entityName) {
+        return !this.metaType && this.foreignEntity && this.foreignEntity.toLowerCase() === entityName
     }
 
     isReverseForeignKeyFor(entityName) {
