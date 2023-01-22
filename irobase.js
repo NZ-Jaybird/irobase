@@ -3,10 +3,10 @@ const migrate = require("./migrate")
 const Loader = require("./loader")
 const persist = require("./persister")
 const DataSource = require("./dataSource")
-const createEntity = require("./entityFactory")
+const EntityFactory = require("./entityFactory")
 
 function isNonEmptyString(string) {
-    return string && typeof(string) === 'string' && 0 < string.length
+    return string && typeof (string) === 'string' && 0 < string.length
 }
 
 function getDataSource(args) {
@@ -16,7 +16,7 @@ function getDataSource(args) {
     if (!isNonEmptyString(args.database)) {
         throw "Invalid database"
     }
-    if (!args.password && typeof(args.password) !== 'string') {
+    if (!args.password && typeof (args.password) !== 'string') {
         throw "Invalid password"
     }
     const port = Number(args.port) || 5432
@@ -34,7 +34,7 @@ function defineSessionWrapper(session) {
     return class Session extends session {
         constructor() {
             super()
-            this.sessionid = ""
+            this.token = ""
         }
     }
 }
@@ -55,7 +55,7 @@ module.exports = class Irobase {
             throw "Cannot update domain while sessions are active"
         }
 
-        if (typeof(args.session) !== 'function') {
+        if (typeof (args.session) !== 'function') {
             throw "Invalid session entity"
         }
         this.sessionEntity = defineSessionWrapper(args.session)
@@ -68,7 +68,7 @@ module.exports = class Irobase {
 
         this.schemas = {}
         entities.forEach(entity => {
-            if (typeof(entity) !== 'function') {
+            if (typeof (entity) !== 'function') {
                 throw "Invalid domain entity"
             }
             if (entity === args.session) {
@@ -77,7 +77,7 @@ module.exports = class Irobase {
             this.schemas[entity.name] = new Schema(entity, entities, this.schemas)
         })
 
-        this.loader = new Loader(this.schemas, this.dataSource)
+        this.entityFactory = new EntityFactory(this.schemas)
     }
 
     async migrate() {
@@ -89,44 +89,54 @@ module.exports = class Irobase {
         await migrate(this.schemas, this.dataSource)
     }
 
-    async beginTransaction(sessionId) {
+    async beginTransaction(token) {
+        console.log("Starting irobase transaction for token " + token)
+
         if (!this.transactions) {
             throw "Irobase is not initialised"
         }
 
-        if (!sessionId) {
-            throw "Must specify a sessionId"
+        if (!token) {
+            throw "Must specify a token"
         }
 
+        const loader = new Loader(this.schemas, this.dataSource)
+
         let session;
-        const sessionSchema = this.schemas[this.sessionEntity.name];
         try {
-            session = (await this.loader.load(sessionSchema, "sessionid", sessionId))[0]
+            session = (await loader.load(this.sessionEntity.name, "token", token))[0]
         } catch (e) {
             throw "Error loading session: " + e
         }
 
         if (!session) {
-            session = createEntity(sessionSchema)
-            session.sessionid = sessionId
+            const sessionSchema = this.schemas[this.sessionEntity.name]
+            session = this.entityFactory.createEntity(sessionSchema)
+            session.token = token
         }
 
-        return this.transactions[sessionId] = session
+        console.log("Started irobase transaction for token " + token)
+
+        return this.transactions[token] = session
     }
 
-    async endTransaction(sessionId) {
+    async endTransaction(token) {
+        console.log("Ending irobase transaction for token " + token)
+
         if (!this.transactions) {
             throw "Irobase is not initialised"
         }
 
-        let session = this.transactions[sessionId]
+        let session = this.transactions[token]
         if (!session) {
             throw "No transaction for session"
         }
 
         await persist(session, this.schemas, this.dataSource)
 
-        delete this.transactions[sessionId]
+        delete this.transactions[token]
+
+        console.log("Ended irobase transaction for token " + token)
     }
 
     async endTest() {

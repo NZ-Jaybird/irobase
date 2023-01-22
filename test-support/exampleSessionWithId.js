@@ -1,8 +1,8 @@
-const exampleObject = require("./exampleObject")
+const exampleObject = require("./exampleObjectWithSessionId")
 
 module.exports = class ExampleSession {
     constructor() {
         this.exampleObjects = [exampleObject]
-        this.sessionid = -1
+        this.id = -1
     }
 }

@@ -1,6 +1,6 @@
 module.exports = class Column {
     buildColumn(columnName, field, entity, entities, schemas) {
-        const fieldType = typeof(field);
+        const fieldType = typeof (field);
         switch (fieldType) {
             case 'number':
                 if (Math.floor(field) === field) {
@@ -18,7 +18,7 @@ module.exports = class Column {
                 break;
             case 'object':
                 if (!Array.isArray(field)) {
-                    throw "Invalid object type in domain entity"
+                    throw "Invalid object type in domain entity. For a foreign field, please provide the constructor."
                 }
                 if (1 !== field.length) {
                     throw "Invalid array size for domain entity"
@@ -51,8 +51,16 @@ module.exports = class Column {
         return !this.metaType && this.foreignEntity && this.foreignEntity.toLowerCase() === entityName
     }
 
+    isForeignKey() {
+        return !this.metaType && this.foreignEntity
+    }
+
     isReverseForeignKeyFor(entityName) {
         return "reverseForeignKey" === this.metaType && this.foreignEntity === entityName
+    }
+
+    isReverseForeignKey() {
+        return "reverseForeignKey" === this.metaType
     }
 
     isReal() {
@@ -65,7 +73,8 @@ module.exports = class Column {
 
     generateScriptForValue(value) {
         if (this.dataType === "integer") {
-            return value
+            const isForeign = !!this.foreignEntity
+            return isForeign && typeof (value) === 'object' ? value.id : value
         } else {
             return `'${value}'`
         }
@@ -73,7 +82,7 @@ module.exports = class Column {
 
     #foreignField(entity, entities) {
         if (!entities.includes(entity)) {
-            throw "Unknown domain entity"
+            throw `Unknown domain entity: ${entity}. Known entities: ${entities}`
         }
         this.foreignEntity = entity.name
     }

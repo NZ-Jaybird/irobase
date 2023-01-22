@@ -16,7 +16,7 @@ module.exports = class Schema {
     }
 
     addForeignKey(entityName) {
-        this.columns[entityName.toLowerCase() + "id"] = new Column().buildForeignKeyColumn(entityName)
+        this.columns[entityName.toLowerCase() + "Id"] = new Column().buildForeignKeyColumn(entityName)
     }
 
     hasReverseForeignKeyFor(entityName) {
@@ -29,8 +29,18 @@ module.exports = class Schema {
 
     getReverseForeignKeys() {
         return Object.entries(this.columns)
-            .map(([columnName, column]) => column.isReal() ? null : { columnName, foreignEntity: column.foreignEntity })
-            .filter(foreignKey => null != foreignKey)
+            .filter(([_, column]) => !column.isReal())
+            .map(([columnName, column]) => {
+                return { columnName, foreignEntity: column.foreignEntity }
+            })
+    }
+
+    getForeignKeys() {
+        return Object.entries(this.columns)
+            .filter(([_, column]) => column.isForeignKey())
+            .map(([columnName, column]) => {
+                return { columnName, foreignEntity: column.foreignEntity }
+            })
     }
 
     generateCreateTableScript() {
@@ -45,17 +55,26 @@ module.exports = class Schema {
     }
 
     generateSelectScript(columnName, value) {
-        const column = this.columns[columnName]
-        if (!column) {
-            throw "Unknown column: " + columnName
+        let resolvedValue
+        if (columnName === "id") {
+            resolvedValue = value
+        } else {
+            const column = this.columns[columnName]
+            if (!column) {
+                console.log(Object.keys(this.columns))
+                throw "Unknown column: " + columnName
+            }
+
+            resolvedValue = column.generateScriptForValue(value)
         }
-        
-        return `SELECT * FROM ${this.schemaName} WHERE ${columnName} = ${column.generateScriptForValue(value)}`
+
+        return `SELECT * FROM ${this.schemaName} WHERE ${columnName} = ${resolvedValue}`
     }
 
     generateInsertScript(instance) {
         const fields = []
         const values = []
+        console.log("generateInsertScript")
         Object.entries(this.columns).forEach(([columnName, column]) => {
             if (column.isReal()) {
                 fields.push(columnName)
@@ -68,6 +87,7 @@ module.exports = class Schema {
 
     generateUpdateScript(instance) {
         const fieldUpdates = []
+        console.log("generateUpdateScript")
         Object.entries(this.columns).forEach(([columnName, column]) => {
             if (column.isReal()) {
                 const value = instance[columnName]
@@ -86,5 +106,9 @@ module.exports = class Schema {
         if (column) {
             return column.foreignEntity
         }
+    }
+
+    getForeignKey() {
+        return `${this.schemaName}Id`
     }
 }
